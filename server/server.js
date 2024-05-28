@@ -2,11 +2,21 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
+const dotenv = require("dotenv");
+const crypto = require("crypto");
+const uuid = require("uuid");
+
+dotenv.config();
 
 const app = express();
 const PORT = 4000;
+const privateKey = process.env.PRIVATE_KEY;
 
 app.use(cors());
+app.use((req, res, next) => {
+  console.log("request recvd to ", req.path);
+  next();
+});
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -48,6 +58,22 @@ app.post("/upload", upload.single("file"), (req, res) => {
 });
 
 app.use("/uploads", express.static("uploads"));
+
+app.get("/auth", function (req, res) {
+  var token = req.query.token || uuid.v4();
+  var expire = req.query.expire || parseInt(Date.now() / 1000) + 2400;
+  var privateAPIKey = `${privateKey}`;
+  var signature = crypto
+    .createHmac("sha1", privateAPIKey)
+    .update(token + expire)
+    .digest("hex");
+  res.status(200);
+  res.send({
+    token: token,
+    expire: expire,
+    signature: signature,
+  });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
